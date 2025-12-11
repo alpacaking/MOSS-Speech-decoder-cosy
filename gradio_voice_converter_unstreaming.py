@@ -10,14 +10,20 @@ from pathlib import Path
 from torchaudio import transforms as T
 import base64
 
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/GLM_modules')
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(current_dir, 'GLM_modules'))
+sys.path.append(current_dir)
 from whisper_encoder_decoder import GLM4Encoder
 
 
 # 全局变量
 encoder = None
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# 全局变量用于 tokenizer_path
+TOKENIZER_PATH = None
+
+MAX_DURATION=90.0
 
 # 全局变量默认值 (将在 main 中根据参数更新)
 OUTPUT_DIR = Path("./.gradio_outputs").resolve()
@@ -29,7 +35,7 @@ def initialize_model(mel_cache_len=8):
         print("="*60)
         print("正在加载模型...")
         print("="*60)
-        tokenizer_path = '/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/SpeechTokenizerTrainer_final/generator_ckpt'
+        tokenizer_path = TOKENIZER_PATH
         encoder = GLM4Encoder(tokenizer_path=tokenizer_path, mel_cache_len=mel_cache_len).to(device)
         encoder.eval()
         print("="*60)
@@ -40,7 +46,7 @@ def initialize_model(mel_cache_len=8):
     return encoder
 
 
-def process_gradio_audio(audio_data, max_duration=30.0):
+def process_gradio_audio(audio_data, max_duration=MAX_DURATION):
     """
     处理 Gradio 音频数据，参考 stable-audio 的处理方式
     
@@ -220,7 +226,7 @@ def process_audio_nonstreaming(
         
         # 处理输入音频（限制最大30秒）
         print("\n[STEP 1] 处理输入音频...")
-        input_tensor, input_sr, input_duration = process_gradio_audio(input_audio, max_duration=30.0)
+        input_tensor, input_sr, input_duration = process_gradio_audio(input_audio, max_duration=MAX_DURATION)
         temp_input = OUTPUT_DIR / "temp_input.wav"
         torchaudio.save(str(temp_input), input_tensor, input_sr)
         print(f"[INFO] 临时输入文件已保存: {temp_input}")
@@ -325,7 +331,7 @@ def process_audio_streaming(
         
         # 处理输入音频（限制最大30秒）
         print("\n[STEP 1] 处理输入音频...")
-        input_tensor, input_sr, input_duration = process_gradio_audio(input_audio, max_duration=30.0)
+        input_tensor, input_sr, input_duration = process_gradio_audio(input_audio, max_duration=MAX_DURATION)
         temp_input = OUTPUT_DIR / "temp_input_stream.wav"
         torchaudio.save(str(temp_input), input_tensor, input_sr)
         print(f"[INFO] 临时输入文件已保存: {temp_input}")
@@ -568,7 +574,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Streaming Codec Gradio Demo")
     parser.add_argument("--output_dir", type=str, default=None, help="指定音频输出目录")
     parser.add_argument("--port", type=int, default=7860, help="指定服务端口")
+    parser.add_argument("--tokenizer_path", type=str, default="./SpeechTokenizerTrainer_final/generator_ckpt", help="Path to tokenizer checkpoint")
+
     args = parser.parse_args()
+    
+    TOKENIZER_PATH = args.tokenizer_path
 
     # 确定输出目录: 命令行参数 > 环境变量 > 默认值
     if args.output_dir:
