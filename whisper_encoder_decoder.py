@@ -169,17 +169,17 @@ class GLM4Encoder(nn.Module):
             prompt_speech_resample = torchaudio.transforms.Resample(orig_freq=origin_sample_rate, new_freq=self.audio_decoder.sample_rate)(prompt_speech_wav)
         else:
             prompt_speech_resample=prompt_speech_wav
-        speech_token = torch.tensor(self.encode_token(prompt_speech),device=device).unsqueeze(0)
-        speech_token_len=torch.tensor(speech_token.shape[-1],device=device).unsqueeze(0).unsqueeze(0)
+        speech_token = torch.tensor(self.encode_token(prompt_speech)).unsqueeze(0)
+        speech_token_len=torch.tensor(speech_token.shape[-1]).unsqueeze(0).unsqueeze(0)
         speech_feat, speech_feat_len=self._extract_speech_feat(prompt_speech_resample)
         if self.audio_decoder.sample_rate == 24000:
             token_len = min(int(speech_feat.shape[1] / 4), speech_token.shape[1])
             speech_feat, speech_feat_len[:] = speech_feat[:, :4 * token_len], 4 * token_len
             speech_token, speech_token_len[:] = speech_token[:, :token_len], token_len
         prompt_speech_16k =torchaudio.transforms.Resample(orig_freq=self.audio_decoder.sample_rate, new_freq=16000)(prompt_speech_resample)
-        embedding = self._extract_spk_embedding(prompt_speech_16k).to(device)
-        speech_feat=speech_feat.to(device)
-        speech_feat_len=speech_feat_len.to(device)
+        embedding = self._extract_spk_embedding(prompt_speech_16k)
+        speech_feat=speech_feat
+        speech_feat_len=speech_feat_len
         syn_wav_list = []  # B * (T_wav,)  # T_wav是生成的音频长度
         for codes in codes_list:  # codes: (1, T)
             if isinstance(codes,list):

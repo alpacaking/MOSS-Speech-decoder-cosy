@@ -297,6 +297,117 @@ def process_audio_nonstreaming(
         return None, error_msg, None
 
 
+def process_audio_streaming(
+    input_audio,
+    reference_audio,
+    block_size,
+    max_token_len,
+    use_spk_embedding = True,
+    use_prompt_speech = True,
+    mel_cache_len = 8
+):
+    """流式音频处理"""
+    try:
+        print("\n" + "="*60)
+        print("开始流式处理")
+        print("="*60)
+        
+        # 初始化模型
+        model = initialize_model(mel_cache_len=mel_cache_len)
+        
+        if input_audio is None:
+            return None, "❌ 请上传输入音频", None
+        if reference_audio is None:
+            return None, "❌ 请上传参考音频", None
+        
+        # 参数检查
+        token_mel_ratio = 4  # 根据代码中的设置
+        min_mel_cache = block_size * token_mel_ratio
+        
+        warning_msg = ""
+        if mel_cache_len < min_mel_cache:
+            warning_msg = f"⚠️ 警告: mel_cache_len ({mel_cache_len}) < block_size * token_mel_ratio ({min_mel_cache})\n"
+            print(warning_msg)
+        
+        # 处理输入音频（限制最大30秒）
+        print("\n[STEP 1] 处理输入音频...")
+        input_tensor, input_sr, input_duration = process_gradio_audio(input_audio, max_duration=MAX_DURATION)
+        temp_input = OUTPUT_DIR / "temp_input_stream.wav"
+        torchaudio.save(str(temp_input), input_tensor, input_sr)
+        print(f"[INFO] 临时输入文件已保存: {temp_input}")
+        
+        # 处理参考音频（限制最大10秒）
+        print("\n[STEP 2] 处理参考音频...")
+        ref_tensor, ref_sr, ref_duration = process_gradio_audio(reference_audio, max_duration=10.0)
+        temp_reference = OUTPUT_DIR / "temp_reference_stream.wav"
+        torchaudio.save(str(temp_reference), ref_tensor, ref_sr)
+        print(f"[INFO] 临时参考文件已保存: {temp_reference}")
+        
+        # 编码输入音频
+        print("\n[STEP 3] 正在编码音频...")
+        audio_tokens = model.encode_token(str(temp_input))
+        print(f"[INFO] ✅ 生成了 {len(audio_tokens)} 个 tokens")
+        
+        # 流式解码
+        print(f"\n[STEP 4] 正在进行流式解码...")
+        print(f"[INFO] 参数:")
+        print(f"  - block_size: {block_size}")
+        print(f"  - max_token_len: {max_token_len if max_token_len else 'None (无限制)'}")
+        print(f"  - mel_cache_len: {mel_cache_len}")
+        print(f"  - use_spk_embedding: {use_spk_embedding}")
+        print(f"  - use_prompt_speech: {use_prompt_speech}")
+        
+        result = model.decode_streaming(
+            [audio_tokens],
+            prompt_speech=str(temp_reference),
+            use_spk_embedding=use_spk_embedding,
+            use_prompt_speech=use_prompt_speech,
+            block_size=block_size,
+            max_token_len=max_token_len
+        )
+        
+        # 保存输出
+        print(f"\n[STEP 5] 保存输出音频...")
+        output_audio = result['syn_wav_list'][0]
+        print(f"[INFO] 输出音频形状: {output_audio.shape}")
+        print(f"[INFO] 输出音频范围: [{output_audio.min():.6f}, {output_audio.max():.6f}]")
+        
+        output_path = save_audio_for_gradio(
+            output_audio,
+            sample_rate=24000,
+            prefix="streaming_output"
+        )
+                
+        if output_path is None:
+            return None, "❌ 保存音频失败", None
+        
+        info = warning_msg
+        info += f"✅ 流式解码完成\n"
+        info += f"输入音频时长: {input_duration:.2f}秒\n"
+        info += f"参考音频时长: {ref_duration:.2f}秒\n"
+        info += f"Token 数量: {len(audio_tokens)}\n"
+        info += f"Block size: {block_size}\n"
+        info += f"Max token len: {max_token_len if max_token_len else 'None (无限制)'}\n"
+        info += f"Mel cache length: {mel_cache_len}\n"
+        info += f"使用说话人嵌入: {use_spk_embedding}\n"
+        info += f"使用提示语音: {use_prompt_speech}\n"
+        info += f"输出文件: {output_path}"
+        
+        print("\n" + "="*60)
+        print(info)
+        print("="*60 + "\n")
+        
+        # 修改：直接返回 output_path
+        return get_audio_html(output_path), info, output_path
+        
+    except Exception as e:
+        import traceback
+        error_msg = f"❌ 处理失败: {str(e)}\n\n详细错误:\n{traceback.format_exc()}"
+        print("\n" + "="*60)
+        print(error_msg)
+        print("="*60 + "\n")
+        return None, error_msg, None
+
 
 def create_ui():
     """创建 Gradio 界面"""
@@ -314,6 +425,7 @@ def create_ui():
         )
         
         nonstream_state = gr.State(value=None)
+        stream_state = gr.State(value=None)
         
         with gr.Row():
             with gr.Column(scale=1):
@@ -371,6 +483,44 @@ def create_ui():
                     lines=8,
                     interactive=False
                 )
+                
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("### 🌊 流式解码")
+                
+                with gr.Row():
+                    block_size = gr.Slider(
+                        minimum=2,
+                        maximum=10,
+                        step=1,
+                        value=5,
+                        label="Block Size",
+                        info="推理时每一步会推出的token数"
+                    )
+                    
+                    max_token_len = gr.Slider(
+                        minimum=10,
+                        maximum=50,
+                        step=5,
+                        value=15,
+                        label="Max Token Length",
+                        info="每步送入flow模型的最大token数，设为0表示不限制"
+                    )
+                
+                with gr.Row():
+                    stream_button = gr.Button(
+                        "⚡ 流式解码",
+                        variant="primary",
+                        size="lg"
+                    )
+                
+                stream_output = gr.HTML(label="流式输出")
+                stream_reload = gr.Button("🔁 重新加载流式音频")
+                stream_info = gr.Textbox(
+                    label="处理信息",
+                    lines=8,
+                    interactive=False
+                )
         
         # 绑定事件
         nonstream_button.click(
@@ -379,11 +529,21 @@ def create_ui():
             outputs=[nonstream_output, nonstream_info, nonstream_state]
         )
 
+        stream_button.click(
+            fn=process_audio_streaming,
+            inputs=[input_audio, reference_audio, block_size, max_token_len],
+            outputs=[stream_output, stream_info, stream_state]
+        )
 
         nonstream_reload.click(
             fn=reload_audio,
             inputs=[nonstream_state],
             outputs=[nonstream_output]
+        )
+        stream_reload.click(
+            fn=reload_audio,
+            inputs=[stream_state],
+            outputs=[stream_output]
         )
         
         # 使用提示
@@ -393,7 +553,13 @@ def create_ui():
         2. **参考音频**: 目标音色的参考音频
         3. **Mel Cache Length**: Vocoder解码时overlap的长度，建议 mel_cache_len / 4 ≤ block_size
         4. **非流式解码**: 一次性处理整个音频，质量更好
+        5. **流式解码**: 对参考音频的音色保留好，分块处理音频，计算量大
+        6. **Block Size**: 控制流式处理的块大小 (2-10)
+        7. **Max Token Length**: 限制每次推理的最大token数量 (10-50)，必须 ≥ block_size + pre_lookahead_len(3) ，且最好多留有一些余量
         8. **输出目录**: `{OUTPUT_DIR}`
+        
+        **参数建议**:
+        - mel_cache_len = 8, block_size = 5, max_token_len = 15 (默认配置)
         
         **重要提示**: 
         - prompt 音频会被截断至前10s。请提供清晰的 prompt 音频
