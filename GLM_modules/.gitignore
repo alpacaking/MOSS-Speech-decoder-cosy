@@ -1,0 +1,10 @@
+*venv
+*.DS_Store
+*.idea/
+test*
+*.mp3
+*.pyc
+*.wav
+*.flac
+.vscode/*
+*.log
