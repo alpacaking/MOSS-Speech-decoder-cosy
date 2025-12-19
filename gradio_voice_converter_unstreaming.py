@@ -46,7 +46,154 @@ def initialize_model(mel_cache_len=8):
     return encoder
 
 
-def process_gradio_audio(audio_data, max_duration=MAX_DURATION):
+
+def calculate_rms(waveform):
+    """计算音频的 RMS 值"""
+    return torch.sqrt(torch.mean(waveform ** 2)).item()
+
+def normalize_volume(waveform, target_rms):
+    """归一化音频音量到目标 RMS 值"""
+    current_rms = torch.sqrt(torch.mean(waveform ** 2))
+    if current_rms > 0:
+        scale = target_rms / current_rms
+        waveform = waveform * scale
+    return waveform
+
+def find_loudest_segment(waveform, sr, segment_duration, window_size=0.1):
+    """
+    找出音频中音量最大的连续片段
+    
+    Args:
+        waveform: 音频波形 [1, samples]
+        sr: 采样率
+        segment_duration: 目标片段时长（秒）
+        window_size: 滑动窗口大小（秒）
+    
+    Returns:
+        截取的音频片段 [1, samples]
+    """
+    if waveform.shape[1] <= segment_duration * sr:
+        return waveform
+    
+    segment_samples = int(segment_duration * sr)
+    window_samples = int(window_size * sr)
+    audio_1d = waveform.squeeze(0)
+    
+    # 使用较大的步长提高效率
+    hop_length = window_samples // 4
+    energies = []
+    for i in range(0, len(audio_1d) - window_samples + 1, hop_length):
+        window = audio_1d[i:i + window_samples]
+        energy = torch.sqrt(torch.mean(window ** 2))
+        energies.append(energy.item())
+    
+    energies = np.array(energies)
+    
+    # 平滑能量曲线
+    kernel_size = max(1, int(segment_duration / window_size))
+    kernel = np.ones(kernel_size) / kernel_size
+    if len(energies) >= kernel_size:
+        smoothed_energies = np.convolve(energies, kernel, mode='valid')
+    else:
+        smoothed_energies = energies
+    
+    # 找到能量最大的位置
+    max_idx = np.argmax(smoothed_energies)
+    start_sample = max_idx * hop_length
+    end_sample = start_sample + segment_samples
+    
+    if end_sample > waveform.shape[1]:
+        end_sample = waveform.shape[1]
+        start_sample = max(0, end_sample - segment_samples)
+    
+    print(f"[INFO] 找到最响片段: {start_sample/sr:.2f}s - {end_sample/sr:.2f}s")
+    return waveform[:, start_sample:end_sample]
+
+
+def calculate_rms(waveform):
+    """计算音频的 RMS 值"""
+    return torch.sqrt(torch.mean(waveform ** 2)).item()
+
+def normalize_volume(waveform, target_rms):
+    """归一化音频音量到目标 RMS 值"""
+    current_rms = torch.sqrt(torch.mean(waveform ** 2))
+    if current_rms > 0:
+        scale = target_rms / current_rms
+        waveform = waveform * scale
+    return waveform
+
+def find_loudest_segment(waveform, sr, segment_duration, window_size=0.1):
+    """找出音频中音量最大的连续片段"""
+    if waveform.shape[1] <= segment_duration * sr:
+        return waveform
+    segment_samples = int(segment_duration * sr)
+    window_samples = int(window_size * sr)
+    audio_1d = waveform.squeeze(0)
+    hop_length = window_samples // 4
+    energies = []
+    for i in range(0, len(audio_1d) - window_samples + 1, hop_length):
+        window = audio_1d[i:i + window_samples]
+        energy = torch.sqrt(torch.mean(window ** 2))
+        energies.append(energy.item())
+    energies = np.array(energies)
+    kernel_size = max(1, int(segment_duration / window_size))
+    kernel = np.ones(kernel_size) / kernel_size
+    if len(energies) >= kernel_size:
+        smoothed_energies = np.convolve(energies, kernel, mode='valid')
+    else:
+        smoothed_energies = energies
+    max_idx = np.argmax(smoothed_energies)
+    start_sample = max_idx * hop_length
+    end_sample = start_sample + segment_samples
+    if end_sample > waveform.shape[1]:
+        end_sample = waveform.shape[1]
+        start_sample = max(0, end_sample - segment_samples)
+    print(f"[INFO] 找到最响片段: {start_sample/sr:.2f}s - {end_sample/sr:.2f}s")
+    return waveform[:, start_sample:end_sample]
+
+
+def calculate_rms(waveform):
+    """计算音频的 RMS 值"""
+    return torch.sqrt(torch.mean(waveform ** 2)).item()
+
+def normalize_volume(waveform, target_rms):
+    """归一化音频音量到目标 RMS 值"""
+    current_rms = torch.sqrt(torch.mean(waveform ** 2))
+    if current_rms > 0:
+        scale = target_rms / current_rms
+        waveform = waveform * scale
+    return waveform
+
+def find_loudest_segment(waveform, sr, segment_duration, window_size=0.1):
+    """找出音频中音量最大的连续片段"""
+    if waveform.shape[1] <= segment_duration * sr:
+        return waveform
+    segment_samples = int(segment_duration * sr)
+    window_samples = int(window_size * sr)
+    audio_1d = waveform.squeeze(0)
+    hop_length = window_samples // 4
+    energies = []
+    for i in range(0, len(audio_1d) - window_samples + 1, hop_length):
+        window = audio_1d[i:i + window_samples]
+        energy = torch.sqrt(torch.mean(window ** 2))
+        energies.append(energy.item())
+    energies = np.array(energies)
+    kernel_size = max(1, int(segment_duration / window_size))
+    kernel = np.ones(kernel_size) / kernel_size
+    if len(energies) >= kernel_size:
+        smoothed_energies = np.convolve(energies, kernel, mode='valid')
+    else:
+        smoothed_energies = energies
+    max_idx = np.argmax(smoothed_energies)
+    start_sample = max_idx * hop_length
+    end_sample = start_sample + segment_samples
+    if end_sample > waveform.shape[1]:
+        end_sample = waveform.shape[1]
+        start_sample = max(0, end_sample - segment_samples)
+    print(f"[INFO] 找到最响片段: {start_sample/sr:.2f}s - {end_sample/sr:.2f}s")
+    return waveform[:, start_sample:end_sample]
+
+def process_gradio_audio(audio_data, max_duration=30.0):
     """
     处理 Gradio 音频数据，参考 stable-audio 的处理方式
     
@@ -91,7 +238,7 @@ def process_gradio_audio(audio_data, max_duration=MAX_DURATION):
     print(f"[INFO] 音频时长: {duration:.2f} 秒")
     
     # 限制最大时长
-    if duration > max_duration:
+    if max_duration is not None and duration > max_duration:
         max_samples = int(max_duration * sample_rate)
         audio = audio[:, :max_samples]
         print(f"[WARNING] 音频超过最大时长 {max_duration}秒，已截断到 {max_duration}秒")
@@ -206,6 +353,7 @@ def reload_audio(audio_path: str):
 def process_audio_nonstreaming(
     input_audio,
     reference_audio,
+    reference_ratio = 0.8,
     use_spk_embedding = True,
     use_prompt_speech = True,
     mel_cache_len = 8
@@ -227,16 +375,37 @@ def process_audio_nonstreaming(
         # 处理输入音频（限制最大30秒）
         print("\n[STEP 1] 处理输入音频...")
         input_tensor, input_sr, input_duration = process_gradio_audio(input_audio, max_duration=MAX_DURATION)
+        input_rms = calculate_rms(input_tensor)
+        input_rms = calculate_rms(input_tensor)
         temp_input = OUTPUT_DIR / "temp_input.wav"
         torchaudio.save(str(temp_input), input_tensor, input_sr)
         print(f"[INFO] 临时输入文件已保存: {temp_input}")
+        print(f"[INFO] 输入音频 RMS: {input_rms:.6f}")
+        print(f"[INFO] 输入音频 RMS: {input_rms:.6f}")
         
-        # 处理参考音频（限制最大10秒）
+        # 处理参考音频（智能截取 + 音量归一化）
         print("\n[STEP 2] 处理参考音频...")
         ref_tensor, ref_sr, ref_duration = process_gradio_audio(reference_audio, max_duration=10.0)
+        
+        # 智能截取最响片段
+        target_duration = reference_ratio * min(ref_duration, 10.0)
+        if ref_duration <= target_duration:
+            print(f"[INFO] 参考音频时长 {ref_duration:.2f}s <= 目标时长 {target_duration:.2f}s，不需要截取")
+            ref_segment = ref_tensor
+        else:
+            ref_segment = find_loudest_segment(ref_tensor, ref_sr, target_duration)
+        
+        # 音量归一化
+        ref_rms_before = calculate_rms(ref_segment)
+        ref_segment = normalize_volume(ref_segment, input_rms)
+        ref_rms_after = calculate_rms(ref_segment)
+        print(f"[INFO] 参考音频 RMS: {ref_rms_before:.6f} -> {ref_rms_after:.6f}")
+        
+        ref_duration_final = ref_segment.shape[1] / ref_sr
         temp_reference = OUTPUT_DIR / "temp_reference.wav"
-        torchaudio.save(str(temp_reference), ref_tensor, ref_sr)
+        torchaudio.save(str(temp_reference), ref_segment, ref_sr)
         print(f"[INFO] 临时参考文件已保存: {temp_reference}")
+        print(f"[INFO] 参考音频处理后时长: {ref_duration_final:.2f}s")
         
         # 编码输入音频
         print("\n[STEP 3] 正在编码音频...")
@@ -273,7 +442,8 @@ def process_audio_nonstreaming(
         info = (
             "✅ 非流式解码完成\n"
             f"输入音频时长: {input_duration:.2f}秒\n"
-            f"参考音频时长: {ref_duration:.2f}秒\n"
+            f"参考音频时长: {ref_duration_final:.2f}秒\n"
+            f"参考音频截取比例: {reference_ratio}\n"
             f"Token 数量: {len(audio_tokens)}\n"
             f"使用说话人嵌入: {use_spk_embedding}\n"
             f"使用提示语音: {use_prompt_speech}\n"
@@ -331,7 +501,16 @@ def create_ui():
                     sources=["upload", "microphone"]
                 )
                 
-                # gr.Markdown("### ⚙️ 共同参数")
+                gr.Markdown("### ⚙️ 参数设置")
+                
+                reference_ratio = gr.Slider(
+                    minimum=0.3,
+                    maximum=1.0,
+                    step=0.1,
+                    value=0.8,
+                    label="参考音频截取比例",
+                    info="从参考音频中截取最响部分的比例 (0.3-1.0)"
+                )
                 
                 mel_cache_len = 8
                 use_spk_embedding = True
@@ -375,7 +554,7 @@ def create_ui():
         # 绑定事件
         nonstream_button.click(
             fn=process_audio_nonstreaming,
-            inputs=[input_audio, reference_audio],
+            inputs=[input_audio, reference_audio, reference_ratio],
             outputs=[nonstream_output, nonstream_info, nonstream_state]
         )
 
