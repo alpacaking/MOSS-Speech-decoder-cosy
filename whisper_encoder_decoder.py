@@ -17,56 +17,105 @@ from transformers import WhisperFeatureExtractor,AutoTokenizer
 import sys
 from tqdm import tqdm
 from collections import OrderedDict
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/GLM_modules')
+
+# 获取当前文件所在目录
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(CURRENT_DIR, 'GLM_modules'))
+
 from flow_inference import AudioDecoder
 from speech_tokenizer.modeling_whisper import WhisperVQEncoder,WhisperVQConfig
 from speech_tokenizer.utils import *
-import torch
-import torchaudio
-import uuid
+import time
 import torchaudio.compliance.kaldi as kaldi
-# sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec')
-# from whisper_feat_extractor import WhisperFeatureExtractor
+import base64
+import uuid
+import numpy as np
 
 
 class GLM4Encoder(nn.Module):
-    def __init__(self, tokenizer_path,block_stream=False,mel_cache_len=8):
+    def __init__(self, 
+                 tokenizer_path,
+                 config_path=None,
+                 feature_extractor_path=None, 
+                 flow_path=None,
+                 block_stream=False,
+                 mel_cache_len=8):
+        """
+        初始化 GLM4Encoder
+        
+        Args:
+            tokenizer_path: tokenizer checkpoint 路径
+            config_path: config.json 或 config_origin.json 路径（可选，默认使用 CURRENT_DIR/config.json）
+            feature_extractor_path: glm-4-voice-tokenizer 路径（可选，默认使用 CURRENT_DIR/glm-4-voice-tokenizer）
+            flow_path: flow 模型目录路径（可选，默认使用 CURRENT_DIR/flow）
+            block_stream: 是否使用 block_stream 模式
+            mel_cache_len: mel cache 长度
+        """
         super().__init__()
-        tokenizer_path = tokenizer_path
-        self.sample_rate = 16000        
-        if block_stream==True:
+        self.sample_rate = 16000
+        
+        # 设置默认路径
+        if config_path is None:
+            config_name = "config_origin.json" if block_stream else "config.json"
+            config_path = os.path.join(CURRENT_DIR, config_name)
+        
+        if feature_extractor_path is None:
+            feature_extractor_path = os.path.join(CURRENT_DIR, 'glm-4-voice-tokenizer')
+        
+        if flow_path is None:
+            flow_path = os.path.join(CURRENT_DIR, "flow")
+        
+        # 存储路径以供后续使用
+        self.tokenizer_path = tokenizer_path
+        self.config_path = config_path
+        self.feature_extractor_path = feature_extractor_path
+        self.flow_path = flow_path
+        
+        print(f"[GLM4Encoder] 初始化配置:")
+        print(f"  - Tokenizer: {tokenizer_path}")
+        print(f"  - Config: {config_path}")
+        print(f"  - Feature Extractor: {feature_extractor_path}")
+        print(f"  - Flow Path: {flow_path}")
+        
+        # 加载配置和模型
+        if block_stream:
             from speech_tokenizer.modeling_whisper_o import WhisperVQEncoder,WhisperVQConfig
-            config = WhisperVQConfig.from_pretrained("/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/config_origin.json")
-            self.whisper_vqmodel = WhisperVQEncoder(config)
         else:
             from speech_tokenizer.modeling_whisper import WhisperVQEncoder,WhisperVQConfig
-            config = WhisperVQConfig.from_pretrained("/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/config.json")
-            self.whisper_vqmodel = WhisperVQEncoder(config)
-        ckpt=torch.load(tokenizer_path)
+        
+        config = WhisperVQConfig.from_pretrained(config_path)
+        self.whisper_vqmodel = WhisperVQEncoder(config)
+        
+        # 加载 tokenizer checkpoint
+        ckpt = torch.load(tokenizer_path)
         state_dict = ckpt['generator']
         new_state_dict = OrderedDict()
         for k, v in state_dict.items():
             if k.startswith("encoder."):
                 new_k = k[len("encoder."):]  
                 new_state_dict[new_k] = v
+        
         missing_keys, unexpected_keys = self.whisper_vqmodel.load_state_dict(new_state_dict, strict=False)
         print("Missing keys:", missing_keys)
         print("Unexpected keys:", unexpected_keys)
-        self.feature_extractor = WhisperFeatureExtractor.from_pretrained('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/glm-4-voice-tokenizer')
-        self.flow_path = "/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/flow"
+        
+        # 加载 feature extractor
+        self.feature_extractor = WhisperFeatureExtractor.from_pretrained(feature_extractor_path)
+        
+        # 初始化 audio decoder
         self.audio_decoder = AudioDecoder(
-            config_path=os.path.join(self.flow_path, "config.yaml"),
-            flow_ckpt_path=os.path.join(self.flow_path, "flow.pt"),
-            hift_ckpt_path=os.path.join(self.flow_path, "hift.pt"),
-            campplus_model='{}/campplus.onnx'.format(self.flow_path),
+            config_path=os.path.join(flow_path, "config.yaml"),
+            flow_ckpt_path=os.path.join(flow_path, "flow.pt"),
+            hift_ckpt_path=os.path.join(flow_path, "hift.pt"),
+            campplus_model=os.path.join(flow_path, 'campplus.onnx'),
             mel_cache_len=mel_cache_len
         )
         self.audio_decoder = self.audio_decoder.eval()
-        
+        print(f" 初始化完成！")
     # @property
     # def sample_rate(self) -> int:
     #     return 16000
-    
+
     @torch.no_grad()
     def forward(self, audio_paths):
         B = len(audio_paths)
@@ -287,7 +336,8 @@ if __name__=='__main__':
         os.environ['TF_CUDNN_DETERMINISTIC'] = '1' # TensorFlow相关的CUDNN确定性设置
 
     set_seed(42)
-    encoder=GLM4Encoder(tokenizer_path='/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/SpeechTokenizerTrainer_final/generator_ckpt',mel_cache_len=8).to('cuda')
+    tokenizer_path = os.path.join(CURRENT_DIR, 'SpeechTokenizerTrainer_final', 'generator_ckpt')
+    encoder = GLM4Encoder(tokenizer_path=tokenizer_path, mel_cache_len=8).to('cuda')
     
     # result2=encoder.encode_batch_token(['/inspire/hdd/project/embodied-multimodality/public/datasets/LibriTTS/LibriTTS/train-clean-100/103/1241/103_1241_000025_000019.wav',
     #  '/inspire/hdd/project/embodied-multimodality/public/datasets/LibriTTS/LibriTTS/train-clean-100/103/1241/103_1241_000027_000007.wav',

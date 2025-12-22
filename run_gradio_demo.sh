@@ -15,7 +15,7 @@ SCRIPT_PATH="/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming
 # ========== 环境设置 ==========
 # 激活 conda 环境
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate moss-speech2
+conda activate moss-speech-cosy
 
 # ========== 启动服务 ==========
 echo "=================================================="
@@ -33,3 +33,5 @@ python "${SCRIPT_PATH}" \
     --output_dir "${OUTPUT_DIR}" \
     --port "${PORT}" \
     --tokenizer_path "/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/SpeechTokenizerTrainer_final/generator_ckpt" \
+    --feature_extractor_path "/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/glm-4-voice-tokenizer" \
+    --flow_path "/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/flow" \

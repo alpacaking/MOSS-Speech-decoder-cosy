@@ -23,6 +23,11 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # 全局变量用于 tokenizer_path
 TOKENIZER_PATH = None
 
+# 全局变量用于模型路径
+CONFIG_PATH = None
+FEATURE_EXTRACTOR_PATH = None
+FLOW_PATH = None
+
 MAX_DURATION=90.0
 
 # 全局变量默认值 (将在 main 中根据参数更新)
@@ -36,7 +41,9 @@ def initialize_model(mel_cache_len=8):
         print("正在加载模型...")
         print("="*60)
         tokenizer_path = TOKENIZER_PATH
-        encoder = GLM4Encoder(tokenizer_path=tokenizer_path, mel_cache_len=mel_cache_len).to(device)
+        feature_extractor_path = FEATURE_EXTRACTOR_PATH
+        flow_path = FLOW_PATH
+        encoder = GLM4Encoder(tokenizer_path=tokenizer_path, feature_extractor_path = feature_extractor_path, flow_path = flow_path,  mel_cache_len=mel_cache_len).to(device)
         encoder.eval()
         print("="*60)
         print("✅ 模型加载完成！")
@@ -587,10 +594,16 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default=None, help="指定音频输出目录")
     parser.add_argument("--port", type=int, default=7860, help="指定服务端口")
     parser.add_argument("--tokenizer_path", type=str, default="./SpeechTokenizerTrainer_final/generator_ckpt", help="Path to tokenizer checkpoint")
+    parser.add_argument("--config_path", type=str, default=None, help="Path to config.json (optional)")
+    parser.add_argument("--feature_extractor_path", type=str, default=None, help="Path to glm-4-voice-tokenizer (optional)")
+    parser.add_argument("--flow_path", type=str, default=None, help="Path to flow directory (optional)")
 
     args = parser.parse_args()
     
     TOKENIZER_PATH = args.tokenizer_path
+    CONFIG_PATH = args.config_path
+    FEATURE_EXTRACTOR_PATH = args.feature_extractor_path
+    FLOW_PATH = args.flow_path
 
     # 确定输出目录: 命令行参数 > 环境变量 > 默认值
     if args.output_dir:

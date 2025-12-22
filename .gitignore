@@ -35,3 +35,5 @@ whisper_encoder_decoder_o1.py
 whisper_encoder_decoder_batch.py
 *_temp.py
 *_temp.sh
+*_temp.md
+*.backup
