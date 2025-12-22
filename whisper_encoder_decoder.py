@@ -228,7 +228,10 @@ class GLM4Encoder(nn.Module):
         #     prompt_speech_wav=prompt_speech_wav
         #     origin_sample_rate=prompt_speech_sample_rate
         if self.audio_decoder.sample_rate != origin_sample_rate:
-            prompt_speech_resample = torchaudio.transforms.Resample(orig_freq=origin_sample_rate, new_freq=self.audio_decoder.sample_rate)(prompt_speech_wav)
+            prompt_speech_resample = torchaudio.transforms.Resample(
+                orig_freq=origin_sample_rate, 
+                new_freq=self.audio_decoder.sample_rate
+            )(prompt_speech_wav)
         else:
             prompt_speech_resample=prompt_speech_wav
         speech_token = torch.tensor(self.encode_token(prompt_speech)).unsqueeze(0)
