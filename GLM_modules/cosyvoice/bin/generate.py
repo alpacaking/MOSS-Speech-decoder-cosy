@@ -27,8 +27,12 @@ from hyperpyyaml import load_hyperpyyaml
 
 from torch.distributed.elastic.multiprocessing.errors import record
 import sys
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/CosyVoice/cosyvoice')
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/CosyVoice')
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append('{}/..'.format(ROOT_DIR))
+
+# sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/CosyVoice/cosyvoice')
+# sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/CosyVoice')
 from cosyvoice.utils.losses import DPOLoss
 from cosyvoice.utils.executor import Executor
 from cosyvoice.utils.train_utils import (

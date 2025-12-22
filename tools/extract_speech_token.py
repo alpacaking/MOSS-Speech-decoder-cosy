@@ -21,11 +21,7 @@ import onnxruntime
 import numpy as np
 import torchaudio
 import whisper
-import sys
-ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append('{}/tools'.format(ROOT_DIR))
-# sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/CosyVoice/tools')
-from whisper_encoder import GLM4Encoder
+
 
 def single_job(utt):
     audio, sample_rate = torchaudio.load(utt2wav[utt], backend='soundfile')
@@ -38,7 +34,9 @@ def single_job(utt):
         logging.warning('do not support extract speech token for audio longer than 30s')
         speech_token = []
     else:
-        speech_token=encoder.encode_token(utt2wav[utt])
+        feat = whisper.log_mel_spectrogram(audio, n_mels=128)
+        speech_token = ort_session.run(None, {ort_session.get_inputs()[0].name: feat.detach().cpu().numpy(),
+                                              ort_session.get_inputs()[1].name: np.array([feat.shape[2]], dtype=np.int32)})[0].flatten().tolist()
     return utt, speech_token
 
 
@@ -55,8 +53,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str)
     parser.add_argument("--onnx_path", type=str)
-    parser.add_argument("--device", type=str)
-    parser.add_argument("--num_thread", type=int, default=32)
+    parser.add_argument("--num_thread", type=int, default=8)
     args = parser.parse_args()
 
     utt2wav = {}
@@ -65,7 +62,11 @@ if __name__ == "__main__":
             l = l.replace('\n', '').split()
             utt2wav[l[0]] = l[1]
 
-    encoder=GLM4Encoder(tokenizer_path='/inspire/hdd/project/embodied-multimodality/public/lzjjin/SpeechTokenizer3_v3.25_ASR/exp/glm/0514_emilia/SpeechTokenizerTrainer_00720000/generator_ckpt').to(args.device)
+    option = onnxruntime.SessionOptions()
+    option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+    option.intra_op_num_threads = 1
+    providers = ["CUDAExecutionProvider"]
+    ort_session = onnxruntime.InferenceSession(args.onnx_path, sess_options=option, providers=providers)
     executor = ThreadPoolExecutor(max_workers=args.num_thread)
 
     main(args)

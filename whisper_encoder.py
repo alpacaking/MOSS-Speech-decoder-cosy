@@ -17,7 +17,9 @@ from transformers import WhisperFeatureExtractor, AutoTokenizer
 import sys
 from tqdm import tqdm
 from collections import OrderedDict
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/GLM_modules')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(current_dir, 'GLM_modules'))
+sys.path.append(current_dir)
 from speech_tokenizer.modeling_whisper import WhisperVQEncoder,WhisperVQConfig
 from speech_tokenizer.utils import extract_speech_token
 import torch

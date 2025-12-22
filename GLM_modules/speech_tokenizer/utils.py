@@ -7,7 +7,9 @@ import torch
 import torchaudio
 import safetensors
 import sys
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/yfxu/Full-Duplex-Bench/model_inference/atlas/voicetokenizers/StreamingCodec/GLM_modules/speech_tokenizer')
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(ROOT_DIR)
+# sys.path.append('/inspire/hdd/project/embodied-multimodality/public/yfxu/Full-Duplex-Bench/model_inference/atlas/voicetokenizers/StreamingCodec/GLM_modules/speech_tokenizer')
 from configuration_whisper import WhisperVQConfig
 from generation_whisper import WhisperGenerationMixin
 from transformers import WhisperFeatureExtractor, WhisperTokenizerFast

@@ -10,7 +10,9 @@ from pathlib import Path
 from torchaudio import transforms as T
 import base64
 
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/GLM_modules')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(current_dir, 'GLM_modules'))
+sys.path.append(current_dir)
 from whisper_encoder_decoder import GLM4Encoder
 
 

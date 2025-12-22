@@ -47,7 +47,9 @@ from transformers.utils import (
     replace_return_docstrings,
 )
 import sys
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/SpeechTokenizer3_v3.25_ASR/speechtokenizer/GLM_modules/speech_tokenizer')
+# sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/SpeechTokenizer3_v3.25_ASR/speechtokenizer/GLM_modules/speech_tokenizer')
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(ROOT_DIR)
 from configuration_whisper import WhisperVQConfig
 from generation_whisper import WhisperGenerationMixin
 

@@ -24,7 +24,8 @@ from cosyvoice.utils.train_utils import update_parameter_and_lr, log_per_step, l
 import datetime
 import sys
 from datetime import timedelta
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/CosyVoice/cosyvoice/utils')
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(ROOT_DIR)
 from file_utils import get_dataset_name_from_path
 class Executor:
 

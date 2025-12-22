@@ -22,9 +22,10 @@ import numpy as np
 import torchaudio
 import whisper
 import sys
+import os
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append('{}/tools'.format(ROOT_DIR))
-# sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/CosyVoice/tools')
+sys.path.append('{}/..'.format(ROOT_DIR))
+# sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec')
 from whisper_encoder import GLM4Encoder
 
 def single_job(utt):
@@ -38,7 +39,7 @@ def single_job(utt):
         logging.warning('do not support extract speech token for audio longer than 30s')
         speech_token = []
     else:
-        speech_token=encoder.encode_token(utt2wav[utt])
+        speech_token=encoder.encode_batch_token([utt2wav[utt]])[0]
     return utt, speech_token
 
 
@@ -54,8 +55,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=str)
-    parser.add_argument("--onnx_path", type=str)
-    parser.add_argument("--device", type=str)
+    parser.add_argument("--device", type=str,default='cuda')
     parser.add_argument("--num_thread", type=int, default=32)
     args = parser.parse_args()
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
             l = l.replace('\n', '').split()
             utt2wav[l[0]] = l[1]
 
-    encoder=GLM4Encoder(tokenizer_path='/inspire/hdd/project/embodied-multimodality/public/lzjjin/SpeechTokenizer3_v3.25_ASR/exp/glm/0514_emilia/SpeechTokenizerTrainer_00720000/generator_ckpt').to(args.device)
+    encoder=GLM4Encoder(tokenizer_path='/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/SpeechTokenizerTrainer_final/generator_ckpt').to(args.device)
     executor = ThreadPoolExecutor(max_workers=args.num_thread)
 
     main(args)

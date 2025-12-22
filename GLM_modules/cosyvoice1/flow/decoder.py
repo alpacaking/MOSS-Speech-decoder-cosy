@@ -15,7 +15,10 @@ import torch
 import torch.nn as nn
 from einops import pack, rearrange, repeat
 import sys
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/GLM_modules/third_party/Matcha-TTS')
+import os
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append('{}/../..'.format(ROOT_DIR))
+sys.path.append('{}/../../third_party/Matcha-TTS'.format(ROOT_DIR))
 from matcha.models.components.decoder import SinusoidalPosEmb, Block1D, ResnetBlock1D, Downsample1D, TimestepEmbedding, Upsample1D
 from matcha.models.components.transformer import BasicTransformerBlock
 

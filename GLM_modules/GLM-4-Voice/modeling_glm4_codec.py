@@ -7,7 +7,8 @@ from typing import List, Dict, Any, Optional
 from torch import nn
 from transformers import WhisperFeatureExtractor
 import sys
-sys.path.append('/inspire/hdd/project/embodied-multimodality/public/lzjjin/Streaming-Codec/GLM_modules/')
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append('{}/..'.format(ROOT_DIR))
 from speech_tokenizer.modeling_whisper import WhisperVQEncoder
 from flow_inference import AudioDecoder
 from speech_tokenizer.utils import *
