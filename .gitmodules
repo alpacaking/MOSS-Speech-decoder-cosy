@@ -1,0 +1,3 @@
+[submodule "GLM_modules/third_party/Matcha-TTS"]
+    path = GLM_modules/third_party/Matcha-TTS
+    url = https://github.com/shivammehta25/Matcha-TTS
